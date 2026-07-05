@@ -16,6 +16,9 @@ for cmd in curl jq chafa; do
     fi
 done
 
+# Directorio por defecto para guardar capturas
+ DIR_CAPTURAS="$HOME/pokedex_capturas"
+
 # ==============================================================================
 # FUNCIONES DE TRADUCCIÓN LOCAL (Para máxima velocidad)
 # ==============================================================================
@@ -51,7 +54,7 @@ traducir_region() {
 # ==============================================================================
 
 verificar_dependencias() {
-    local dependencias=("curl" "jq" "chafa")
+    local dependencias=("curl" "jq" "chafa" "mpv")
     local faltantes=()
 
     # 1. Chequeo silencioso: verifica si los comandos existen en el sistema
@@ -72,7 +75,7 @@ verificar_dependencias() {
         
         sudo apt-get update -qq
         # Se redirige la salida estándar para que la instalación de apt-get sea más silenciosa
-        sudo apt-get install -y "${faltantes[@]}" > /dev/null 2>&1
+        sudo apt-get install -y "${faltantes[@]}"
         
         clear
         echo -e "${BG}${FG} ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓ ${RESET}"
@@ -88,7 +91,6 @@ verificar_dependencias() {
 # ==============================================================================
 # LÓGICA DE LA API Y RENDERIZADO DE FICHA
 # ==============================================================================
-
 buscar_pokemon() {
     local BUSQUEDA="$1"
     
@@ -114,20 +116,24 @@ buscar_pokemon() {
         return
     fi
 
+    # Obtener sprite o imagen
     ID=$(echo "$POKE_DATA" | jq -r '.id')
     SPRITE_URL=$(echo "$POKE_DATA" | jq -r '.sprites.front_default')
     
-    # Formatear peso y altura (la API los entrega en hectogramos y decímetros)
+    # Obtener sonido o 'Cry'
+    CRY_URL=$(echo "$POKE_DATA" | jq -r '.cries.latest // empty')
+    
+    # Formatear peso y altura
     ALTURA=$(echo "$POKE_DATA" | jq -r '.height' | awk '{printf "%.1f m", $1/10}')
     PESO=$(echo "$POKE_DATA" | jq -r '.weight' | awk '{printf "%.1f kg", $1/10}')
 
-    # Traducir Tipos (Maneja si tiene uno o dos tipos)
+    # Traducir Tipos
     T1=$(echo "$POKE_DATA" | jq -r '.types[0].type.name')
     T2=$(echo "$POKE_DATA" | jq -r '.types[1].type.name // empty')
-   TIPO_FINAL=$(traducir_tipo "$T1")
+    TIPO_FINAL=$(traducir_tipo "$T1")
     if [[ -n "$T2" ]]; then TIPO_FINAL="$TIPO_FINAL / $(traducir_tipo "$T2")"; fi
 
-    # 2. Petición de Especie (Nombre en español, región y evolución)
+    # 2. Petición de Especie
     SPECIES_URL=$(echo "$POKE_DATA" | jq -r '.species.url')
     SPECIES_DATA=$(curl -s "$SPECIES_URL")
     
@@ -137,15 +143,20 @@ buscar_pokemon() {
     GEN_RAW=$(echo "$SPECIES_DATA" | jq -r '.generation.name')
     REGION=$(traducir_region "$GEN_RAW")
 
-    # 3. Cadena de Evolución (Magia de jq recursivo)
+    # 3. Cadena de Evolución
     EVO_URL=$(echo "$SPECIES_DATA" | jq -r '.evolution_chain.url')
     EVO_DATA=$(curl -s "$EVO_URL")
-    
     CADENA_EVO=$(echo "$EVO_DATA" | jq -r '[.. | .species? | .name? | select(. != null)] | map((.[0:1] | ascii_upcase) + .[1:]) | join(" -> ")')
-    
+
     # 4. Renderizado en Pantalla
     clear
-    # Descargar y dibujar Sprite en alta calidad ANSI
+
+    # Reproducir el sonido en segundo plano de forma silenciosa (&)
+    if [[ -n "$CRY_URL" && "$CRY_URL" != "null" ]]; then
+        mpv --no-video --really-quiet --volume=35 "$CRY_URL" > /dev/null 2>&1 &
+    fi
+
+    # Descargar y dibujar sprite
     if [[ "$SPRITE_URL" != "null" ]]; then
         curl -s "$SPRITE_URL" -o /tmp/pokesprite.png
         chafa --size=40x16 --colors=256 /tmp/pokesprite.png
@@ -154,7 +165,6 @@ buscar_pokemon() {
         echo -e "\n[ Sin Ilustración Disponible ]\n"
     fi
 
-    # Dibujar Caja Estilo GBA
     echo -e "${BG}${FG} ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓ ${RESET}"
     printf "${BG}${FG} ┃  ${ACCENT}%-50s${RESET}${BG}${FG} ┃ ${RESET}\n" "INFO POKÉMON"
     echo -e "${BG}${FG} ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫ ${RESET}"
@@ -169,8 +179,57 @@ buscar_pokemon() {
     printf "${BG}${FG} ┃  %-50s ┃ ${RESET}\n" "$CADENA_EVO"
     echo -e "${BG}${FG} ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛ ${RESET}"
     echo ""
-    
-    read -rsn1 -p "Presiona cualquier tecla para regresar..."
+
+    # ==============================================================================
+    # SISTEMA DE CAPTURA (Exportación Markdown Zettelkasten)
+    # ==============================================================================
+    echo -e "${BG}${FG} [C] Capturar Pokémon  |  [Cualquier otra tecla] Regresar al Menú ${RESET}"
+    read -rsn1 tecla
+
+    if [[ "${tecla^^}" == "C" ]]; then
+        # 1. Crear el directorio global si no existe
+        mkdir -p "$DIR_CAPTURAS"
+        
+        # 2. Limpieza de variables para Tags (convierte a minúsculas y quita acentos)
+        local TAG_REGION=$(echo "$REGION" | awk '{print tolower($1)}' | sed 'y/áéíóú/aeiou/')
+        local TAG_TIPO=$(echo "$TIPO_FINAL" | sed 's/ \/ /-/g' | tr '[:upper:]' '[:lower:]' | sed 'y/áéíóú/aeiou/')
+        
+        # 3. Formatear enlaces bidireccionales de la línea evolutiva
+        local EVO_WIKI="[[${CADENA_EVO// -> /]] -> [[}]]"
+        
+        local NOMBRE_CAPITALIZADO="${NOMBRE_ES^}"
+        local ARCHIVO="$DIR_CAPTURAS/${NOMBRE_CAPITALIZADO}.md"
+        
+        # 4. Inyectar la estructura Markdown directamente en el archivo
+        cat <<EOF > "$ARCHIVO"
+---
+aliases: ["${NOMBRE_ES^^}"]
+tags:
+  - pokemon/tipo/$TAG_TIPO
+  - pokemon/region/$TAG_REGION
+id: $ID
+altura: $ALTURA
+peso: $PESO
+---
+
+# $NOMBRE_CAPITALIZADO
+
+![Sprite Oficial]($SPRITE_URL)
+
+## Datos Biométricos
+- **Tipo:** $TIPO_FINAL
+- **Región:** $REGION
+- **Medidas:** $ALTURA / $PESO
+
+## Línea Evolutiva
+$EVO_WIKI
+EOF
+        
+        # Mensaje visual de confirmación
+        echo -e "\n ${BG}${FG}${ACCENT} ¡${NOMBRE_CAPITALIZADO} registrado en la base de datos! ${RESET}"
+        echo -e " ${BG}${FG} 💾 Archivo guardado en: $ARCHIVO ${RESET}"
+        sleep 2.5
+    fi
 }
 
 # ==============================================================================

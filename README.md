@@ -11,6 +11,17 @@ Una Pokédex interactiva para la terminal escrita completamente en Bash Scriptin
 * **Árbol Evolutivo:** Parseo recursivo de JSON para calcular y mostrar la línea evolutiva cronológica completa.
 * **Autogestión de Dependencias:** Comprobación e instalación automática (vía `apt`) de las herramientas requeridas para su funcionamiento.
 
+## 🚀 Características (v1.1.2)
+
+* **Interfaz Interactiva:** Menús navegables por teclado utilizando secuencias de escape ANSI.
+* **Búsqueda Avanzada:** Consulta de Pokémon específicos por nombre o ID numérico.
+* **Filtros Dinámicos:** Exploración del catálogo segmentado por Región de origen o por Tipo.
+* **Arte ASCII en Tiempo Real:** Descarga y conversión de *sprites* oficiales a bloques de color en la terminal mediante `chafa`.
+* **Árbol Evolutivo:** Parseo recursivo de JSON para calcular y mostrar la línea evolutiva cronológica completa.
+* **Sistema de Captura (Zettelkasten):** Exportación automática de la ficha del Pokémon a un archivo Markdown con *frontmatter* YAML y enlaces bidireccionales, guardado en un directorio global.
+* **Integración de Audio:** Reproducción en segundo plano del grito original del Pokémon consultado utilizando `mpv`.
+* **Autogestión de Dependencias:** Comprobación e instalación automática (vía `apt`) de las herramientas requeridas (`curl`, `jq`, `chafa`, `mpv`).
+
 ## 🛠️ Requisitos
 
 El script verifica automáticamente si tienes instalados los paquetes necesarios. Si no los tienes, intentará instalarlos:

@@ -22,6 +22,17 @@ Una Pokédex interactiva para la terminal escrita completamente en Bash Scriptin
 * **Integración de Audio:** Reproducción en segundo plano del grito original del Pokémon consultado utilizando `mpv`.
 * **Autogestión de Dependencias:** Comprobación e instalación automática (vía `apt`) de las herramientas requeridas (`curl`, `jq`, `chafa`, `mpv`).
 
+## 🆕 Novedades v1.2.0
+
+- **UI uniforme:** todas las ventanas (menú, filtros, listados y ficha)
+  comparten un mismo ancho, controlado por la variable `ANCHO_INT`.
+- **Alineación perfecta con acentos:** el ancho visual se calcula por
+  puntos de código y no por bytes, así que `é`, `ñ` o `1ª` ya no
+  descuadran los bordes.
+- **Descripción de cada Pokémon:** la ficha muestra el texto oficial de
+  la Pokédex en español (PokeAPI), ajustado al ancho del recuadro, y
+  también se guarda en la nota `.md` de captura.
+
 ## 🛠️ Requisitos
 
 El script verifica automáticamente si tienes instalados los paquetes necesarios. Si no los tienes, intentará instalarlos:
